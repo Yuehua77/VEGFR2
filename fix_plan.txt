@@ -1,0 +1,44 @@
+Implementation Plan - Data Preparation Reproduction
+Goal Description
+Update the data collection and processing pipeline to strictly follow the methodology described in the paper "Discovery of novel VEGFR2 inhibitors against non-small cell lung cancer based on fingerprint-enhanced graph attention convolutional network". This involves strict binary classification thresholds, adding A549 cell line data, generating specific molecular features (ECFP4 + Graph features), and implementing a negative sampling strategy.
+
+Proposed Changes
+Data Collection
+[MODIFY] 
+collect_vegfr2_data.py
+Update 
+VEGFR2DataCollector
+ to also collect data for A549 cell line (Target ID: CHEMBL3307651).
+Implement merging logic to combine VEGFR2 and A549 data.
+Ensure data structure supports multi-task labels (VEGFR2 activity and A549 activity).
+Data Processing
+[MODIFY] 
+process_existing_data.py
+Implement strict binary classification logic:
+Active (1): IC50 < 1 uM (pIC50 > 6.0)
+Inactive (0): IC50 > 10 uM (pIC50 < 5.0)
+Drop intermediate values (1-10 uM).
+Implement negative sampling strategy (random selection from ChEMBL or decoy generation) to balance the dataset.
+Clean up the script to handle the new multi-task data format.
+Feature Generation
+[NEW] 
+generate_features.py
+Create a new script to generate model inputs.
+Fingerprints: Generate 1024-bit ECFP4 fingerprints.
+Graph Features: Generate node features (atom type, degree, charge, etc.) and edge features (bond type, conjugation, etc.) using RDKit.
+Save features in .npy or .pkl format for PyTorch.
+Verification Plan
+Automated Verification
+Create a verification script verify_data_prep.py to:
+Check that vegfr2_processed.csv contains only 0 and 1 labels (no intermediates).
+Verify that A549 data is present (check for A549 columns or rows).
+Verify that generated feature files exist and have correct shapes (e.g., fingerprint dimension 1024).
+Check class balance to verify negative sampling effect.
+Manual Verification
+Run 
+collect_vegfr2_data.py
+ (with a small limit for testing) and inspect the output CSV.
+Run 
+process_existing_data.py
+ and inspect the output CSV.
+Run generate_features.py and check the output files.

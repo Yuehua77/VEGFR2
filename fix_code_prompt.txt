@@ -1,0 +1,53 @@
+【背景】 我正在尝试复现论文《Discovery of novel VEGFR2 inhibitors against non-small cell lung cancer based on fingerprint-enhanced graph attention convolutional network》中的数据准备部分。 目前我已经编写了一套基础的 ChEMBL 数据收集脚本（包括 collect_vegfr2_data.py 和 process_existing_data.py），但这些代码与论文的方法论存在严重偏差。
+
+【任务目标】 请作为一名生物信息学专家，修改并扩充我的现有代码，使其产出的数据格式严格符合论文要求，以便后续用于 FnGATGCN 模型的训练。
+
+【具体修改要求】
+
+1. 修正标签逻辑（严格二分类）
+
+现状：当前代码将活性标记为 High/Medium/Low。
+
+论文要求：
+
+Active (标签 1)：IC50 < 1 μM（即 pIC50 > 6.0）。
+
+Inactive (标签 0)：IC50 > 10 μM（即 pIC50 < 5.0）。
+
+剔除：介于 1 μM 到 10 μM 之间的中间数据必须直接丢弃。
+
+操作：修改数据清洗逻辑，严格执行上述阈值划分。
+
+2. 补充多任务数据源（A549 细胞系）
+
+现状：当前只收集了 VEGFR2 (CHEMBL279) 的靶点数据。
+
+论文要求：模型是多任务的，需要同时预测 VEGFR2 酶活性 和 A549 肺癌细胞抗增殖活性。
+
+操作：在 collect_vegfr2_data.py 中增加对 A549 Cell Line (ChEMBL Target ID通常为 CHEMBL614725 或需搜索确认) 的活性数据收集，并将其与 VEGFR2 数据合并处理（注意：有的分子可能只有一种活性，需处理缺失值）。
+
+3. 实现图特征与指纹生成（核心输入构建）
+
+现状：当前只输出了 CSV 中的 SMILES 字符串，无法直接输入 GAT-GCN 模型。
+
+论文要求：模型输入包括“分子图特征”和“ECFP4 指纹”。
+
+操作：请创建一个新脚本 generate_features.py，使用 rdkit 实现以下功能：
+
+生成指纹：将 SMILES 转换为 1024 位 ECFP4 (Radius=2)。
+
+生成图特征：
+
+节点特征 (Node Features)：提取原子类型、度、电荷、杂化、芳香性等（参考论文 Table 1，维度约 44）。
+
+邻接矩阵/边特征 (Edge Features)：提取键类型、共轭、环信息等（参考论文 Table 1，维度约 14）。
+
+将处理好的特征保存为 .npy 或 .pkl 格式，方便 PyTorch 读取。
+
+4. 优化负样本策略（简化版）
+
+现状：无负样本补充策略。
+
+论文要求：从 PubChem 引入大量非活性分子以平衡数据集。
+
+操作：由于工程量限制，请实现一个简化版策略：在现有代码中增加一个功能，利用 RDKit 生成 Decoy 分子，或者从 ChEMBL 中随机抽取与 VEGFR2/A549 无关的分子作为 Inactive 样本补充，以缓解数据不平衡。
